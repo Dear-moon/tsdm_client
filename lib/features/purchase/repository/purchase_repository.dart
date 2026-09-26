@@ -28,7 +28,7 @@ extension _Regexp on String {
 
 /// Repository of purchasing.
 final class PurchaseRepository with LoggerMixin {
-  static const _purchaseTarget = 'https://tsdm39.com/forum.php?mod=misc&action=pay&paysubmit=yes&infloat=yes&inajax=1';
+  static const _purchaseTarget = '$baseUrl/forum.php?mod=misc&action=pay&paysubmit=yes&infloat=yes&inajax=1';
   static final _valueRe = RegExp(' value="(?<value>.+)" />');
   static final _authorRe = RegExp('<td><a.*>(?<author>.+)</a></td>');
   static final _coinsRe = RegExp(r'<td>(?<coins>\d+).*</td>');

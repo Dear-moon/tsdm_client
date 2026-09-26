@@ -265,9 +265,13 @@ class Locked extends Equatable {
     final purchasedCount = element.querySelector('em')?.firstEndDeepText()?.split(' ').elementAtOrNull(1)?.parseToInt();
 
     // Check for locked with purchase.
-    final purchaseMatch = _purchareRe.firstMatch(element.querySelector('a')?.attributes['onclick'] ?? '');
-    final purchaseTid = purchaseMatch?.namedGroup('tid');
-    final purchasePid = purchaseMatch?.namedGroup('pid');
+    final purchaseLink = element.querySelector('a[href*="action=pay"]');
+    final purchaseParams = purchaseLink?.attributes['href']?.tryParseAsUri()?.queryParameters;
+    final purchaseMatch = _purchareRe.firstMatch(
+      element.querySelector('a[onclick*="action=pay"]')?.attributes['onclick'] ?? '',
+    );
+    final purchaseTid = purchaseParams?['tid'] ?? purchaseMatch?.namedGroup('tid');
+    final purchasePid = purchaseParams?['pid'] ?? purchaseMatch?.namedGroup('pid');
     if (price != null && purchaseTid != null && purchasePid != null) {
       // Locked with purchase.
       if (!allowWithPurchase) {

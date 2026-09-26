@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:dart_mappable/dart_mappable.dart';
+import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
@@ -152,6 +153,7 @@ class ForumBloc extends Bloc<ForumEvent, ForumState> with LoggerMixin {
           (e) => FilterSpecialType(
             name: e.innerText.trim(),
             specialType: _specialTypeRe.firstMatch(e.attributes['href'] ?? '')?.namedGroup('type'),
+            rewardType: e.attributes['href']?.uriQueryParameter('rewardtype'),
           ),
         )
         .toList();

@@ -4,6 +4,8 @@ import 'package:fpdart/fpdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
+import 'package:tsdm_client/extensions/universal_html.dart';
+import 'package:tsdm_client/features/authentication/repository/internal/login_parser.dart';
 import 'package:tsdm_client/features/thread/v1/models/models.dart';
 import 'package:tsdm_client/features/thread/v1/repository/discuz_dsign_decoder.dart';
 import 'package:tsdm_client/instance.dart';
@@ -13,6 +15,27 @@ import 'package:universal_html/parsing.dart';
 
 /// Repository of thread page of the app.
 class ThreadRepository {
+  /// Constructor.
+  ThreadRepository({String? redirect})
+    : _pendingRedirect = {'nextoldset', 'nextnewset', 'lastpost'}.contains(redirect) ? redirect : null;
+
+  String? _pendingRedirect;
+  void _completeRedirect(uh.Document document, Uri responseUri) {
+    if (_pendingRedirect == null || document.querySelector('#postlist') == null) return;
+    final canonical = document.querySelector('link[rel="canonical"]')?.attributes['href'];
+    final tid = Uri.tryParse(canonical ?? '')?.queryParameters['tid'] ?? responseUri.queryParameters['tid'];
+    if (tid == null) return;
+    // Share the resolved thread, not an action that would redirect again.
+    _threadUrl = Uri.https(baseHost, '/forum.php', {
+      'mod': 'viewthread',
+      'tid': tid,
+      'page': '${document.currentPage() ?? 1}',
+      'ordertype': ?responseUri.queryParameters['ordertype'],
+      'authorid': ?responseUri.queryParameters['authorid'],
+    }).toString();
+    _pendingRedirect = null;
+  }
+
   String? _threadUrl;
 
   /// Getter to get the thread url.
@@ -78,7 +101,14 @@ class ThreadRepository {
     };
 
     _pageNumber = pageNumber;
-    if (tid != null) {
+    if (tid != null && _pendingRedirect != null) {
+      _threadUrl = Uri.https(baseHost, '/forum.php', {
+        'mod': 'redirect',
+        'goto': _pendingRedirect!,
+        'tid': tid,
+        'authorid': ?onlyVisibleUid,
+      }).toString();
+    } else if (tid != null) {
       _threadUrl =
           '$baseUrl/forum.php?mod=viewthread&tid=$tid&extra=page%3D1'
           '$orderType$visibleUid'
@@ -112,7 +142,13 @@ class ThreadRepository {
 
       final html = resp.data as String;
       final document = parseHtmlDocument(html);
+      // A host-only login cookie cannot authenticate the fallback domain.
+      if (Uri.parse(requestUrl).host != baseHost && isDiscuzLoggedOut(document)) {
+        lastError = HttpRequestFailedException(HttpStatus.serviceUnavailable);
+        continue;
+      }
       if (_isUsableThreadDocument(document)) {
+        _completeRedirect(document, resp.realUri);
         return right(document);
       }
 
@@ -141,7 +177,12 @@ class ThreadRepository {
           }
 
           final signedDocument = parseHtmlDocument(signedResp.data as String);
+          if (signedUri.host != baseHost && isDiscuzLoggedOut(signedDocument)) {
+            lastError = HttpRequestFailedException(HttpStatus.serviceUnavailable);
+            continue;
+          }
           if (_isUsableThreadDocument(signedDocument)) {
+            _completeRedirect(signedDocument, signedResp.realUri);
             return right(signedDocument);
           }
         }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' if (dart.libaray.js) 'package:web/web.dart';
 
 import 'package:fpdart/fpdart.dart';
@@ -7,7 +6,6 @@ import 'package:rxdart/rxdart.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
-import 'package:tsdm_client/extensions/string.dart';
 import 'package:tsdm_client/extensions/universal_html.dart';
 import 'package:tsdm_client/features/authentication/repository/internal/login_parser.dart';
 import 'package:tsdm_client/features/authentication/repository/models/models.dart';
@@ -35,9 +33,6 @@ class AuthenticationRepository with LoggerMixin {
   static const _loginFormUrl = '$baseUrl/member.php?mod=logging&action=login';
   static const _logoutBaseUrl = '$baseUrl/member.php?mod=logging&action=logout&formhash=';
   static final _formHashRe = RegExp(r'formhash" value="(?<FormHash>\w+)"');
-
-  /// Url to check authentication status using v2 API.
-  static const _checkAuthUrlV2 = '$baseUrl/home.php?mobile=yes&tsdmapp=1&mod=space&do=profile';
 
   static String _buildLogoutUrl(String formHash) {
     return '$_logoutBaseUrl$formHash';
@@ -95,7 +90,6 @@ class AuthenticationRepository with LoggerMixin {
   /// Will not change authentication status if failed to login.
   AsyncVoidEither loginWithPassword(LoginHash loginHash, UserCredential credential) => AsyncVoidEither(() async {
     debug('login with passwd');
-    await _markUnauthenticated();
     // When login with password, use an empty and injected cookie when
     // performing login request. Because :
     //
@@ -109,7 +103,14 @@ class AuthenticationRepository with LoggerMixin {
       return left(LoginInvalidFormHashException());
     }
 
-    final respEither = await netClient.postForm(loginHash.actionUrl, data: credential.toFormData(loginHash)).run();
+    // AJAX avoids losing login cookies during an automatic HTTP redirect.
+    final respEither = await netClient
+        .postForm(
+          loginHash.actionUrl,
+          data: credential.toFormData(loginHash),
+          queryParameters: {'inajax': '1'},
+        )
+        .run();
     if (respEither.isLeft()) {
       return left(respEither.unwrapErr());
     }
@@ -149,12 +150,12 @@ class AuthenticationRepository with LoggerMixin {
 
   /// Parse logged user info from html [document].
   AsyncVoidEither loginWithDocument(uh.Document document) => AsyncVoidEither(() async {
-    // Do NOT mark as unauthenticated here because auth with document is
-    // only used as a verification of a token that intend to be valid. It's
-    // outside the regular login progress.
     final userInfo = parseLoggedUserInfo(document);
     if (userInfo == null) {
-      debug('failed to login with document: user info not found');
+      // A fallback host may not receive the primary host's session cookie.
+      if (isDiscuzLoggedOut(document)) {
+        return checkAuthentication().run();
+      }
       return left(LoginUserInfoNotFoundException());
     }
 
@@ -163,6 +164,37 @@ class AuthenticationRepository with LoggerMixin {
     await _markAuthenticated(userInfo);
 
     debug('login with document: user $userInfo');
+    return rightVoid();
+  });
+
+  /// Revalidate the active session against the standard account page.
+  AsyncVoidEither checkAuthentication() => AsyncVoidEither(() async {
+    final previousUser = _authedUser;
+    final result = await getIt.get<NetClientProvider>().get(_checkAuthUrl).run();
+    if (result.isLeft()) {
+      return left(result.unwrapErr());
+    }
+    final response = result.unwrap();
+    if (response.statusCode != HttpStatus.ok) {
+      return left(HttpRequestFailedException(response.statusCode));
+    }
+    // An old response must not overwrite a newly selected account.
+    if (_authedUser != previousUser) {
+      return rightVoid();
+    }
+    final document = parseHtmlDocument(response.data as String);
+    final userInfo = parseLoggedUserInfo(document);
+    if (userInfo == null) {
+      if (isDiscuzLoggedOut(document)) {
+        getIt.get<CookieProvider>().clearUserInfoAndCookie();
+        if (_controller.valueOrNull is! AuthStatusNotAuthed) {
+          await _markUnauthenticated();
+        }
+      }
+      return left(LoginUserInfoNotFoundException());
+    }
+    await _markAuthenticated(userInfo);
+    await getIt.get<CookieProvider>().saveCookieToStorage();
     return rightVoid();
   });
 
@@ -222,28 +254,35 @@ class AuthenticationRepository with LoggerMixin {
   ///
   /// Return [SwitchUserNotAuthedException] if failed.
   AsyncVoidEither switchUser(UserLoginInfo userInfo) => AsyncVoidEither(() async {
-    if (!await getIt.get<CookieProvider>().loadCookieFromStorage(userInfo)) {
+    // Failed validation must not replace the active session or persist guest cookies.
+    final storedCookie = userInfo.uid == null ? null : getIt.get<StorageProvider>().getCookieByUidSync(userInfo.uid!);
+    if (storedCookie == null) {
       return left(LoginInvalidCredentialException());
     }
-    final resp = await getIt.get<NetClientProvider>().get(_checkAuthUrlV2).run();
+    final cookie = CookieProvider(UserLoginInfo.empty(), Map<String, String>.from(storedCookie));
+    final client = NetClientProvider.buildNoCookie(cookie: cookie);
+    final resp = await client.get(_checkAuthUrl).run();
     if (resp.isLeft()) {
       return left(resp.unwrapErr());
     }
-
-    final result = jsonDecode(resp.unwrap().data as String) as Map<String, dynamic>;
-    if (result['status'] != 0) {
-      error(
-        'failed to switch user to uid=${"${userInfo.uid}".obscured(4)}, '
-        'status=${result["status"]}, '
-        'message=${result["message"]}',
-      );
+    final response = resp.unwrap();
+    if (response.statusCode != HttpStatus.ok) {
+      return left(HttpRequestFailedException(response.statusCode));
+    }
+    final document = parseHtmlDocument(response.data as String);
+    final verifiedUser = parseLoggedUserInfo(document);
+    if (verifiedUser == null || verifiedUser.uid != userInfo.uid) {
+      if (isDiscuzLoggedOut(document) && _authedUser?.uid == userInfo.uid) {
+        getIt.get<CookieProvider>().clearUserInfoAndCookie();
+        await _markUnauthenticated();
+      }
       return left(SwitchUserNotAuthedException());
     }
 
-    // Succeed.
-    // Here we get complete user info.
-    await getIt.get<CookieProvider>().saveCookieToStorage();
-    await _markAuthenticated(userInfo);
+    await cookie.updateUserInfo(verifiedUser);
+    await cookie.saveCookieToStorage();
+    await getIt.get<CookieProvider>().loadCookieFromStorage(verifiedUser);
+    await _markAuthenticated(verifiedUser);
 
     debug('login with document: user $userInfo');
     return rightVoid();

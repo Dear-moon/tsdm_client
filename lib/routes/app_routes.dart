@@ -151,6 +151,7 @@ final List<RouteBase> _appRoutes = [
         threadType: threadType,
         threadID: tid,
         findPostID: pid,
+        redirect: state.uri.queryParameters['redirect'],
         pageNumber: pageNumber ?? '1',
         overrideReverseOrder: overrideReverseOrder,
         overrideWithExactOrder: overrideWithExactOrder,

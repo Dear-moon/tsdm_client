@@ -52,11 +52,15 @@ class ThreadPage extends StatefulWidget {
     this.title,
     this.threadType,
     this.onlyVisibleUid,
+    this.redirect,
     super.key,
   }) : assert(threadID != null || findPostID != null, 'MUST provide threadID or findPostID');
 
   /// Thread ID, tid.
   final String? threadID;
+
+  /// Discuz redirect action resolved on the first successful load.
+  final String? redirect;
 
   /// Post ID to find and redirect before accessing the real thread page.
   ///
@@ -234,7 +238,9 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
             threadID: state.tid ?? widget.threadID,
             title: state.title ?? widget.title,
             pageNumber: context.read<JumpPageCubit>().state.currentPage,
-            initialPostID: widget.findPostID?.parseToInt(),
+            initialPostID:
+                widget.findPostID?.parseToInt() ??
+                (widget.redirect == 'lastpost' ? state.postList.lastOrNull?.postID.parseToInt() : null),
             scrollController: _listScrollController,
             widgetBuilder: (context, post) => PostCard(post, replyCallback: replyPostCallback),
             useDivider: true,
@@ -318,7 +324,7 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
 
     return MultiBlocProvider(
       providers: [
-        RepositoryProvider<ThreadRepository>(create: (_) => ThreadRepository()),
+        RepositoryProvider<ThreadRepository>(create: (_) => ThreadRepository(redirect: widget.redirect)),
         RepositoryProvider<ReplyRepository>(create: (_) => const ReplyRepository()),
         BlocProvider(
           create: (context) => ThreadBloc(

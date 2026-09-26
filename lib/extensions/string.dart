@@ -96,12 +96,18 @@ extension ParseUrl on String {
       return RecognizedRoute(ScreenPaths.latestThread, queryParameters: {'url': prependHost()});
     }
 
-    if (mod == 'redirect' && queryParameters['tid'] != null) {
+    if (mod == 'redirect' && queryParameters['tid'] != null && queryParameters['goto'] != 'findpost') {
+      final redirect = queryParameters['goto'];
+      if (redirect != null && !{'nextoldset', 'nextnewset', 'lastpost'}.contains(redirect)) {
+        return null;
+      }
       // TODO: Migrate to v2 when supported.
       return RecognizedRoute(
         ScreenPaths.threadV1,
         queryParameters: {
           'tid': "${queryParameters['tid']}",
+          'redirect': ?redirect,
+          if (redirect != null) 'overrideReverseOrder': 'false',
           if (queryParameters.containsKey('authorid')) 'onlyVisibleUid': "${queryParameters['authorid']}",
         },
       );

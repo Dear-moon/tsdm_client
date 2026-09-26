@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/features/authentication/repository/authentication_repository.dart';
+import 'package:tsdm_client/features/authentication/repository/models/models.dart';
 import 'package:tsdm_client/features/multi_user/bloc/switch_user_bloc.dart';
 import 'package:tsdm_client/features/multi_user/widgets/manage_user_dialog.dart';
 import 'package:tsdm_client/features/notification/bloc/auto_notification_cubit.dart';
@@ -27,7 +30,17 @@ class ManageAccountPage extends StatefulWidget {
   State<ManageAccountPage> createState() => _ManageAccountPageState();
 }
 
-class _ManageAccountPageState extends State<ManageAccountPage> {
+class _ManageAccountPageState extends State<ManageAccountPage> with LoggerMixin {
+  late final Stream<AuthStatus> _authStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    final repository = context.read<AuthenticationRepository>();
+    _authStatus = repository.status;
+    unawaited(repository.checkAuthentication().match(handle, (_) {}).run());
+  }
+
   @override
   Widget build(BuildContext context) {
     final tr = context.t.manageAccountPage;
@@ -53,56 +66,60 @@ class _ManageAccountPageState extends State<ManageAccountPage> {
             body: SafeArea(
               bottom: false,
               child: SingleChildScrollView(
-                child: StreamBuilder(
-                  stream: getIt.get<StorageProvider>().allUsersStream(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      // Unreachable.
-                      return Center(child: Text('${snapshot.error}'));
-                    }
-                    if (!snapshot.hasData) {
-                      return const CenteredCircularIndicator();
-                    }
+                child: StreamBuilder<AuthStatus>(
+                  stream: _authStatus,
+                  builder: (context, authSnapshot) => StreamBuilder(
+                    stream: getIt.get<StorageProvider>().allUsersStream(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        // Unreachable.
+                        return Center(child: Text('${snapshot.error}'));
+                      }
+                      if (!snapshot.hasData) {
+                        return const CenteredCircularIndicator();
+                      }
 
-                    final tr = context.t.manageAccountPage;
+                      final tr = context.t.manageAccountPage;
 
-                    final currentUser = context.read<AuthenticationRepository>().currentUser;
-                    final users = snapshot.data!;
-                    return Padding(
-                      padding: edgeInsetsL12T4R12B4,
-                      child: Card(
-                        margin: EdgeInsets.zero,
-                        child: Padding(
-                          padding: edgeInsetsL12T12R12.add(context.safePadding()),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(tr.allUsers, style: Theme.of(context).textTheme.titleMedium),
-                                  if (state is SwitchUserLoading) ...[sizedBoxW12H12, sizedCircularProgressIndicator],
-                                ],
-                              ),
-                              sizedBoxW4H4,
-                              // List all recorded users.
-                              ...users
-                                  .where(
-                                    (e) => e.username != null && e.username!.isNotEmpty && e.uid != null && e.uid != 0,
-                                  )
-                                  .map((e) => _UserInfoListTile(userInfo: e, currentUserInfo: currentUser)),
-                              ListTile(
-                                leading: const Icon(Icons.add_outlined),
-                                title: Text(tr.addUser),
-                                enabled: state is! SwitchUserLoading,
-                                onTap: () async => context.pushNamed(ScreenPaths.login),
-                              ),
-                            ],
+                      final currentUser = context.read<AuthenticationRepository>().currentUser;
+                      final users = snapshot.data!;
+                      return Padding(
+                        padding: edgeInsetsL12T4R12B4,
+                        child: Card(
+                          margin: EdgeInsets.zero,
+                          child: Padding(
+                            padding: edgeInsetsL12T12R12.add(context.safePadding()),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(tr.allUsers, style: Theme.of(context).textTheme.titleMedium),
+                                    if (state is SwitchUserLoading) ...[sizedBoxW12H12, sizedCircularProgressIndicator],
+                                  ],
+                                ),
+                                sizedBoxW4H4,
+                                // List all recorded users.
+                                ...users
+                                    .where(
+                                      (e) =>
+                                          e.username != null && e.username!.isNotEmpty && e.uid != null && e.uid != 0,
+                                    )
+                                    .map((e) => _UserInfoListTile(userInfo: e, currentUserInfo: currentUser)),
+                                ListTile(
+                                  leading: const Icon(Icons.add_outlined),
+                                  title: Text(tr.addUser),
+                                  enabled: state is! SwitchUserLoading,
+                                  onTap: () async => context.pushNamed(ScreenPaths.login),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -148,9 +165,18 @@ class _UserInfoListTile extends StatelessWidget with LoggerMixin {
                   ),
                 )
               : null,
-          onTap: (loading || isCurrentUser)
+          onTap: loading
               ? null
-              : () async => openManageUserDialog(context: context, userInfo: userInfo, heroTag: ''),
+              : () async {
+                  if (isCurrentUser) {
+                    await context.pushNamed(
+                      ScreenPaths.login,
+                      queryParameters: {'username': userInfo.username!},
+                    );
+                  } else {
+                    await openManageUserDialog(context: context, userInfo: userInfo, heroTag: '');
+                  }
+                },
         );
       },
     );

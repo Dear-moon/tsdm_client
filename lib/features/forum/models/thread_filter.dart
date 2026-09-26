@@ -108,7 +108,7 @@ final class FilterType extends FilterBase with FilterTypeMappable {
 @MappableClass()
 final class FilterSpecialType extends FilterBase with FilterSpecialTypeMappable {
   /// Constructor.
-  const FilterSpecialType({required this.name, required this.specialType}) : super('specialtype');
+  const FilterSpecialType({required this.name, required this.specialType, this.rewardType}) : super('specialtype');
 
   /// Thread special type name.
   ///
@@ -121,6 +121,9 @@ final class FilterSpecialType extends FilterBase with FilterSpecialTypeMappable 
   ///
   /// Null value means do not filter by thread special type.
   final String? specialType;
+
+  /// Reward status from the forum filter link.
+  final String? rewardType;
 }
 
 /// Duration elapsed since thread published in seconds.

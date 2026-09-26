@@ -328,7 +328,7 @@ final class _GzipEncodingChecker extends Interceptor with LoggerMixin {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     // Likely to have redirect on post methods.
-    if (options.method != 'GET' || options.uri.queryParameters['goto'] == 'findpost') {
+    if (options.method != 'GET' || options.uri.queryParameters['mod'] == 'redirect') {
       info('removing gzip encoding in request');
       options.headers[HttpHeaders.acceptEncodingHeader] = 'deflate, br';
     }

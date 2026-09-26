@@ -57,8 +57,11 @@ final class PurchaseBloc extends Bloc<PurchaseEvent, PurchaseState> with LoggerM
             handleKey: confirmInfo.handleKey,
             tid: confirmInfo.tid,
           )
+          .match((e) {
+            handle(e);
+            emit(state.copyWith(status: PurchaseStatus.failed));
+          }, (_) => emit(state.copyWith(status: PurchaseStatus.success)))
           .run();
-      emit(state.copyWith(status: PurchaseStatus.success));
     } on HttpRequestFailedException catch (e) {
       error('failed to purchase: $e');
       emit(state.copyWith(status: PurchaseStatus.failed));

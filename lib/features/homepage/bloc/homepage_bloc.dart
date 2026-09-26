@@ -105,6 +105,12 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
       return;
     }
 
+    final homeDocument = homeResult.unwrap();
+    final authResult = await _authenticationRepository.loginWithDocument(homeDocument).run();
+    if (authResult.isLeft() && authResult.unwrapErr() is! LoginUserInfoNotFoundException) {
+      handle(authResult.unwrapErr());
+    }
+
     final guideResult = await _forumHomeRepository.fetchGuidePages(force: force).run();
     if (guideResult.isLeft()) {
       guideResult.match(handle, (_) {});
@@ -116,11 +122,6 @@ class HomepageBloc extends Bloc<HomepageEvent, HomepageState> with LoggerMixin {
         ? null
         : await _profileRepository.fetchProfile(force: force).run();
 
-    final homeDocument = homeResult.unwrap();
-    final authResult = await _authenticationRepository.loginWithDocument(homeDocument).run();
-    if (authResult.isLeft() && authResult.unwrapErr() is! LoginUserInfoNotFoundException) {
-      handle(authResult.unwrapErr());
-    }
     String? avatarUrl;
     if (profileResult?.isRight() ?? false) {
       avatarUrl = profileResult!.unwrap().extractAvatar();

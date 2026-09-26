@@ -47,6 +47,9 @@ class ForumRepository {
     }
     if (filterState.filterSpecialType?.specialType != null) {
       queryMap['specialtype'] = filterState.filterSpecialType!.specialType!;
+      if (filterState.filterSpecialType!.specialType == 'reward' && filterState.filterSpecialType!.rewardType != null) {
+        queryMap['rewardtype'] = filterState.filterSpecialType!.rewardType!;
+      }
     }
     if (filterState.filterOrder?.orderBy != null) {
       queryMap['orderby'] = filterState.filterOrder!.orderBy!;
@@ -63,7 +66,7 @@ class ForumRepository {
       queryMap['filter'] = filterState.filter!;
     }
 
-    return Uri.https('tsdm39.com', '/forum.php', queryMap);
+    return Uri.https(baseHost, '/forum.php', queryMap);
   }
 
   /// Fetch the page data on a forum group specified by group id [gid].
