@@ -1,4 +1,27 @@
 {
+  "recommend": {
+    "support": "Support",
+    "oppose": "Oppose",
+    "confirmSupport": "Support this thread? Each account can rate a thread only once.",
+    "confirmOppose": "Oppose this thread? Each account can rate a thread only once.",
+    "success": "Rating submitted",
+    "duplicate": "You have already rated this thread",
+    "ownThread": "You cannot rate your own thread",
+    "limitReached": "Your rating allowance has been used up. Please try again later.",
+    "denied": "You do not have permission to rate threads",
+    "needLogin": "Please log in before rating a thread",
+    "unavailable": "This thread does not provide this action",
+    "failed": "Could not confirm the result. Refresh the thread before trying again."
+  },
+  "favorite": {
+    "thread": "Favorite thread",
+    "forum": "Favorite forum",
+    "description": "Description (optional)",
+    "success": "Added to favorites",
+    "alreadySaved": "Already in your favorites",
+    "needLogin": "Please log in before adding a favorite",
+    "failed": "Could not confirm the result. Retry to check whether it was saved."
+  },
   "locale": "English",
   "appName": "TSDM",
   "general": {

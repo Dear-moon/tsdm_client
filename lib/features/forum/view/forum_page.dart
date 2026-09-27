@@ -7,6 +7,7 @@ import 'package:tsdm_client/constants/layout.dart';
 import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/list.dart';
+import 'package:tsdm_client/features/favorite/widgets/favorite_dialog.dart';
 import 'package:tsdm_client/features/forum/bloc/forum_bloc.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/forum/repository/forum_repository.dart';
@@ -156,6 +157,11 @@ class _ForumPageState extends State<ForumPage> with SingleTickerProviderStateMix
         _ => null,
       }?.animateTo(0, curve: _backToTopCurve, duration: _backToTopAnimationDuration),
       customMenuItems: [
+        MenuCustomItem(
+          icon: Icons.bookmark_add_outlined,
+          description: context.t.favorite.forum,
+          onSelected: () => showFavoriteDialog(context, id: widget.fid, isThread: false),
+        ),
         MenuCustomItem(
           icon: Icons.numbers_outlined,
           description: context.t.forumPage.copyFid(fid: widget.fid),

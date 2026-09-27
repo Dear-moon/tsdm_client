@@ -1,4 +1,27 @@
 {
+  "recommend": {
+    "support": "支持",
+    "oppose": "踩踩",
+    "confirmSupport": "确定支持此主题？每个账号对同一主题只能评价一次。",
+    "confirmOppose": "确定踩此主题？每个账号对同一主题只能评价一次。",
+    "success": "评价成功",
+    "duplicate": "您已评价过本主题",
+    "ownThread": "不能评价自己的帖子",
+    "limitReached": "评价次数已用完，请稍后再试",
+    "denied": "您没有评价主题的权限",
+    "needLogin": "请先登录后再评价",
+    "unavailable": "当前主题未提供此操作入口",
+    "failed": "未能确认操作结果，请刷新帖子后再决定是否重试。"
+  },
+  "favorite": {
+    "thread": "收藏主题",
+    "forum": "收藏本版",
+    "description": "收藏说明（可选）",
+    "success": "收藏成功",
+    "alreadySaved": "已经收藏，请勿重复收藏",
+    "needLogin": "请先登录后再收藏",
+    "failed": "未能确认操作结果，请重试以检查是否已收藏。"
+  },
   "locale": "简体中文",
   "appName": "天使动漫",
   "general": {
