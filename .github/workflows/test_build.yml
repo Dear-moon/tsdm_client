@@ -137,9 +137,24 @@ jobs:
           dart ./Makefile.dart
       - name: Setup Android sign key
         if: ${{ github.event_name == 'push' || inputs.build_android }}
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE }}
+          KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
         run: |
-          echo '${{ secrets.KEYSTORE }}' | base64 --decode > android/app/key.jks
-          echo '${{ secrets.KEY_PROPERTIES }}' > android/key.properties
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEY_PROPERTIES" ]; then
+            echo "$KEYSTORE_B64" | base64 --decode > android/app/key.jks
+            printf '%s\n' "$KEY_PROPERTIES" > android/key.properties
+            echo "Signing with the release keystore from repository secrets."
+          else
+            # Forks do not inherit upstream secrets. Fall back to a throwaway
+            # debug key so the build still yields an installable APK.
+            keytool -genkeypair -keystore android/app/key.jks -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US"
+            printf 'storePassword=android\nkeyPassword=android\nkeyAlias=androiddebugkey\nstoreFile=key.jks\n' > android/key.properties
+            echo "::warning::KEYSTORE/KEY_PROPERTIES are not set; the APK will be signed with a debug key."
+          fi
       - name: Build Android
         if: ${{ github.event_name == 'push' || inputs.build_android }}
         run: |
@@ -162,7 +177,10 @@ jobs:
   build-windows:
     name: Build Windows
     if: ${{ github.event_name == 'push' || inputs.build_windows }}
-    runs-on: windows-latest
+    # Pin to windows-2022: windows-latest moved to VS 18 / MSVC 14.51, whose STL
+    # promotes the <experimental/coroutine> deprecation to error C2338 inside
+    # flutter_local_notifications_windows and permission_handler_windows.
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
         with:
