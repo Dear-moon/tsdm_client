@@ -617,6 +617,20 @@
       "removed": "已取消收藏",
       "failed": "操作失敗：$err"
     },
+    "recommend": {
+      "support": "支持",
+      "oppose": "踩踩",
+      "confirmSupport": "確定支持此主題？每個帳號對同一主題只能評價一次。",
+      "confirmOppose": "確定踩踩此主題？每個帳號對同一主題只能評價一次。",
+      "success": "評價成功",
+      "duplicate": "您已評價過本主題",
+      "ownThread": "不能評價自己的帖子",
+      "limitReached": "評價次數已用完，請稍後再試",
+      "denied": "您沒有評價主題的權限",
+      "needLogin": "請先登入後再評價",
+      "unavailable": "目前主題未提供此操作入口",
+      "failed": "未能確認評價結果，請重新整理帖子後再決定是否重試。"
+    },
     "repliedMark": "已回覆",
     "shareToFriend": {
       "title": "分享給好友",

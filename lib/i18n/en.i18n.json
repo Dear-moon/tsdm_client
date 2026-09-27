@@ -617,6 +617,20 @@
       "removed": "Removed from favorites",
       "failed": "Failed: $err"
     },
+    "recommend": {
+      "support": "Support",
+      "oppose": "Oppose",
+      "confirmSupport": "Support this thread? Each account can rate a thread only once.",
+      "confirmOppose": "Oppose this thread? Each account can rate a thread only once.",
+      "success": "Rating submitted",
+      "duplicate": "You have already rated this thread",
+      "ownThread": "You cannot rate your own thread",
+      "limitReached": "Your rating allowance has been used up, please try again later",
+      "denied": "You are not allowed to rate threads",
+      "needLogin": "Please log in before rating a thread",
+      "unavailable": "This thread does not provide this action",
+      "failed": "The result could not be confirmed. Refresh the thread before trying again."
+    },
     "repliedMark": "Replied",
     "shareToFriend": {
       "title": "Share to a friend",

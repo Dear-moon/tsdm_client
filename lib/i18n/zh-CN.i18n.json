@@ -617,6 +617,20 @@
       "removed": "已取消收藏",
       "failed": "操作失败：$err"
     },
+    "recommend": {
+      "support": "支持",
+      "oppose": "踩踩",
+      "confirmSupport": "确定支持此主题？每个账号对同一主题只能评价一次。",
+      "confirmOppose": "确定踩踩此主题？每个账号对同一主题只能评价一次。",
+      "success": "评价成功",
+      "duplicate": "您已评价过本主题",
+      "ownThread": "不能评价自己的帖子",
+      "limitReached": "评价次数已用完，请稍后再试",
+      "denied": "您没有评价主题的权限",
+      "needLogin": "请先登录后再评价",
+      "unavailable": "当前主题未提供此操作入口",
+      "failed": "未能确认评价结果，请刷新帖子后再决定是否重试。"
+    },
     "repliedMark": "已回复",
     "shareToFriend": {
       "title": "分享给好友",

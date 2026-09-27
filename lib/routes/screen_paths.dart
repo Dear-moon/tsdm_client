@@ -385,6 +385,9 @@ class DialogPaths {
   /// Dialog asking the optional note of a new favorite.
   static const String favoriteNote = '/dialog/favoriteNote';
 
+  /// Dialog to confirm a thread rating (支持 / 踩踩).
+  static const String recommend = '/dialog/recommend';
+
   /// Dialog showing a red packet in a thread.
   static const String redPacket = '/dialog/redPacket';
 }

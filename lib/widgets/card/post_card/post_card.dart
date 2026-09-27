@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tsdm_client/constants/layout.dart';
+import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/extensions/build_context.dart';
 import 'package:tsdm_client/extensions/date_time.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart';
 import 'package:tsdm_client/features/post/models/models.dart';
+import 'package:tsdm_client/features/recommend/widgets/recommend_dialog.dart';
 import 'package:tsdm_client/features/settings/bloc/settings_bloc.dart';
 import 'package:tsdm_client/features/thread/v1/bloc/thread_bloc.dart';
 import 'package:tsdm_client/i18n/strings.g.dart';
@@ -90,6 +93,64 @@ class PostCard extends StatefulWidget {
 }
 
 class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin, LoggerMixin {
+  /// Whether the actions of the thread belong to this floor.
+  ///
+  /// The forum renders them once, under the first post, so only that floor shows them.
+  bool get _showThreadActions => widget.post.postFloor == 1 && context.readOrNull<ThreadBloc>()?.state.tid != null;
+
+  /// Rating, favorite and share actions of the thread.
+  Widget _buildThreadActions(BuildContext context) {
+    final tid = context.read<ThreadBloc>().state.tid!;
+    final shareLink = widget.post.shareLink ?? '$baseUrl/forum.php?mod=viewthread&tid=$tid';
+    final favorited = isThreadFavorited(context, tid: tid);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Center(
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.tonalIcon(
+              onPressed: () async {
+                final changed = await toggleThreadFavorite(context, tid: tid);
+                if (changed && mounted) {
+                  setState(() {});
+                }
+              },
+              icon: Icon(
+                favorited ? Icons.bookmark_remove_outlined : Icons.bookmark_add_outlined,
+                size: 18,
+              ),
+              label: Text(favorited ? context.t.threadPage.favorite.remove : context.t.threadPage.favorite.add),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: () => copyToClipboard(context, shareLink),
+              icon: const Icon(Icons.share_outlined, size: 18),
+              label: Text(context.t.postCard.share),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: () => showRecommendDialog(context, tid: tid, support: true),
+              icon: const Icon(Icons.thumb_up_outlined, size: 18),
+              label: Text(context.t.threadPage.recommend.support),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: () => showRecommendDialog(context, tid: tid, support: false),
+              icon: const Icon(Icons.thumb_down_outlined, size: 18),
+              label: Text(context.t.threadPage.recommend.oppose),
+            ),
+            if (widget.post.rateAction != null)
+              FilledButton.tonalIcon(
+                onPressed: _rateCallback,
+                icon: const Icon(Icons.rate_review_outlined, size: 18),
+                label: Text(context.t.postCard.rate),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _rateCallback() async {
     await context.pushNamed(
       ScreenPaths.ratePost,
@@ -299,7 +360,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
           ],
         ),
       ),
-      if (widget.post.rateAction != null)
+      if (widget.post.rateAction != null && !_showThreadActions)
         PopupMenuItem(
           value: _PostCardActions.rate,
           child: Row(
@@ -350,16 +411,17 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
           ),
         ),
       if (widget.post.shareLink != null) ...[
-        PopupMenuItem(
-          value: _PostCardActions.share,
-          child: Row(
-            children: [
-              const Icon(Icons.share_outlined),
-              sizedBoxPopupMenuItemIconSpacing,
-              Text(context.t.postCard.share),
-            ],
+        if (!_showThreadActions)
+          PopupMenuItem(
+            value: _PostCardActions.share,
+            child: Row(
+              children: [
+                const Icon(Icons.share_outlined),
+                sizedBoxPopupMenuItemIconSpacing,
+                Text(context.t.postCard.share),
+              ],
+            ),
           ),
-        ),
         PopupMenuItem(
           value: _PostCardActions.openInBrowser,
           child: Row(
@@ -508,6 +570,7 @@ class _PostCardState extends State<PostCard> with AutomaticKeepAliveClientMixin,
             child: RateCard(widget.post.rate!, widget.post.postID),
           ),
         ],
+        if (_showThreadActions) _buildThreadActions(context),
         // Context menu.
         _buildContextMenuRow(context),
       ],

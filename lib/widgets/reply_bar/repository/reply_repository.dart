@@ -5,6 +5,7 @@ import 'package:tsdm_client/constants/url.dart';
 import 'package:tsdm_client/exceptions/exceptions.dart';
 import 'package:tsdm_client/extensions/fp.dart';
 import 'package:tsdm_client/extensions/string.dart';
+import 'package:tsdm_client/features/chat/utils/parse_pm_response.dart';
 import 'package:tsdm_client/features/editor/utils/mention.dart';
 import 'package:tsdm_client/instance.dart';
 import 'package:tsdm_client/shared/models/models.dart';
@@ -25,11 +26,6 @@ final class ReplyRepository with LoggerMixin {
   ///
   /// {'pmid':'${PMID}'}.
   // static final _messagePmidRe = RegExp(r"'pmid':'(?<pmid>\d+)'");
-
-  /// Regexp to grep error message in chat message send response.
-  ///
-  /// errorhandle_pmsend('${ERR}', {});
-  static final _messageErrorRe = RegExp(r"\('(?<err>.+)', \{\}\);\}");
 
   /// `succeedhandle_<handlekey>('<url>', '<message>', {...})`.
   ///
@@ -221,6 +217,42 @@ final class ReplyRepository with LoggerMixin {
         return right(postedReplyOf(data));
       });
 
+  /// Post a private message form and read the answer of the forum.
+  ///
+  /// The session cookie belongs to the primary host only, and only an `inajax` answer that names the success handler
+  /// proves the message was stored; anything else must not be reported as delivered.
+  AsyncVoidEither _sendPersonalMessage(String target, Map<String, String> data) => AsyncVoidEither(() async {
+    final uri = Uri.tryParse(target);
+    if (uri == null ||
+        !{baseHost, baseHostAlt}.contains(uri.host) ||
+        uri.path != '/home.php' ||
+        uri.queryParameters['mod'] != 'spacecp' ||
+        uri.queryParameters['ac'] != 'pm' ||
+        uri.queryParameters['op'] != 'send') {
+      return left(ReplyPersonalMessageFailedException('invalid private message target'));
+    }
+    final action = uri.replace(
+      scheme: 'https',
+      host: baseHost,
+      queryParameters: {...uri.queryParameters, 'inajax': '1', 'handlekey': 'pmsend'},
+    );
+    final result = await getIt
+        .get<NetClientProvider>()
+        .postForm(action.toString(), data: {...data, 'handlekey': 'pmsend'})
+        .run();
+    if (result.isLeft()) {
+      return left(result.unwrapErr());
+    }
+    final response = result.unwrap();
+    if (response.statusCode != HttpStatus.ok) {
+      return left(HttpRequestFailedException(response.statusCode));
+    }
+    if (response.data is! String) {
+      return left(ReplyPersonalMessageFailedException('unexpected private message response'));
+    }
+    return parsePrivateMessageSendResult(response.data as String);
+  });
+
   /// Reply personalMessage in history page.
   AsyncVoidEither replyHistoryPersonalMessage({
     required String targetUrl,
@@ -228,28 +260,7 @@ final class ReplyRepository with LoggerMixin {
     required String message,
   }) => AsyncVoidEither(() async {
     final formData = <String, String>{'message': toOfficialMentions(message), 'formhash': formHash};
-
-    final e = await getIt.get<NetClientProvider>().postForm(targetUrl, data: formData).run();
-    if (e.isLeft()) {
-      return left(e.unwrapErr());
-    }
-    final resp = e.unwrap();
-    if (resp.statusCode != HttpStatus.ok) {
-      throw HttpRequestFailedException(resp.statusCode);
-    }
-
-    final data = resp.data as String;
-
-    if (data.contains('succeedhandle_pmsend')) {
-      // Success.
-      // return _messagePmidRe.firstMatch(data)?.namedGroup('pmid');
-      return rightVoid();
-    }
-    if (data.contains('errorhandle_pmsend')) {
-      final errorMessage = _messageErrorRe.firstMatch(data)?.namedGroup('err');
-      return left(ReplyPersonalMessageFailedException(errorMessage ?? 'unknown error'));
-    }
-    return rightVoid();
+    return _sendPersonalMessage(targetUrl, formData).run();
   });
 
   /// Reply a personal message, use as we are chatting though the chat dialog
@@ -265,29 +276,6 @@ final class ReplyRepository with LoggerMixin {
   /// Return the pmid if send message succeed which is used to show the new
   /// generated message.
   AsyncVoidEither replyPersonalMessage(String touid, Map<String, String> formData) => AsyncVoidEither(() async {
-    final e = await getIt.get<NetClientProvider>().postForm(formatSendMessageUrl(touid), data: formData).run();
-    if (e.isLeft()) {
-      return left(e.unwrapErr());
-    }
-
-    final resp = e.unwrap();
-
-    if (resp.statusCode != HttpStatus.ok) {
-      throw HttpRequestFailedException(resp.statusCode);
-    }
-
-    final data = resp.data as String;
-
-    if (data.contains('succeedhandle_pmsend')) {
-      // Success.
-      // return _messagePmidRe.firstMatch(data)?.namedGroup('pmid');
-      return rightVoid();
-    }
-    if (data.contains('errorhandle_showmsg_$touid')) {
-      final errorMessage = _messageErrorRe.firstMatch(data)?.namedGroup('err');
-      return left(ReplyPersonalMessageFailedException(errorMessage ?? 'unknown error'));
-    }
-
-    return rightVoid();
+    return _sendPersonalMessage(formatSendMessageUrl(touid), formData).run();
   });
 }

@@ -16,7 +16,6 @@ import 'package:tsdm_client/features/blocking/repository/user_block_repository.d
 import 'package:tsdm_client/features/blocking/utils/block_filter.dart';
 import 'package:tsdm_client/features/blocking/utils/thread_author_cache.dart';
 import 'package:tsdm_client/features/blocking/widgets/block_aware_post.dart';
-import 'package:tsdm_client/features/favorite/utils/thread_favorite_action.dart';
 import 'package:tsdm_client/features/forum/models/models.dart';
 import 'package:tsdm_client/features/jump_page/cubit/jump_page_cubit.dart';
 import 'package:tsdm_client/features/need_login/view/need_login_page.dart';
@@ -781,21 +780,6 @@ class _ThreadPageState extends State<ThreadPage> with SingleTickerProviderStateM
                 onReverseOrder: () => context.readOrNull<ThreadBloc>()?.add(const ThreadChangeViewOrderRequested()),
                 customMenuItems: [
                   if (state.tid != null) ...[
-                    MenuCustomItem(
-                      icon: isThreadFavorited(context, tid: state.tid!)
-                          ? Icons.bookmark_remove_outlined
-                          : Icons.bookmark_add_outlined,
-                      description: isThreadFavorited(context, tid: state.tid!)
-                          ? context.t.threadPage.favorite.remove
-                          : context.t.threadPage.favorite.add,
-                      onSelected: () async {
-                        final changed = await toggleThreadFavorite(context, tid: state.tid!);
-                        if (changed && mounted) {
-                          // Relabel the menu item.
-                          setState(() {});
-                        }
-                      },
-                    ),
                     if (context.read<AuthenticationRepository>().effectiveCurrentUid != null)
                       MenuCustomItem(
                         icon: Icons.forward_to_inbox_outlined,
